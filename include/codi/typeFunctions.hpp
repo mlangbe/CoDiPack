@@ -28,6 +28,8 @@
  *     Max Sagebaum
  *     Tim Albring
  *     Johannes Blühdorn
+ *
+ * Adaptations by M.Langbein for ia (branch adapt2ia)
  */
 
 #pragma once

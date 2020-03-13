@@ -30,7 +30,7 @@
  *     Johannes Blühdorn
  *
  *
- * Adaptations by m.langbein to work with ia
+ * Adaptations by m.langbein to work with ia (branch adapt2ia)
  */
 
 #pragma once

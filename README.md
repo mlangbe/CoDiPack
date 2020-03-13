@@ -33,6 +33,17 @@ For each type there is also a type with single precession e.g. `RealForwardFloat
 
 For further details please visit our [CoDiPack](http://www.scicomp.uni-kl.de/software/codi/) web page.
 
+
+### Interval arithmetic
+This version in branch adapt2ia has been modified by m.langbein to work with his interval arithmetic code.
+(in files expressions.hpp and typeFunctions.hpp).
+
+To use it, 
+ - replace the innermost type of your derivative-enabled type by your
+interval implementation
+ - overload the structs defined in IAOverloaded for your interval-arithmetic type.
+
+
 ## Miscellaneous information
 
 ### Debugging with gdb
