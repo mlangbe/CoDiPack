@@ -1109,6 +1109,12 @@ namespace codi {
    */
   template<typename Real>
   struct Copysign : public BinaryOpInterface<Real> {
+
+
+
+
+
+
     /** \copydoc BinaryOpInterface::primal */
     static CODI_INLINE Real primal(const Real& a, const Real& b) {
       return copysign(a, b);
@@ -1121,15 +1127,15 @@ namespace codi {
 
 
       using tret= typename TypeTraits<Real>::PassiveReal;
-      tret retval;
 
       auto a_is_null = a==0;
       auto b_is_null = b==0;
       auto b_ltz = b<0;
+      auto b_gtz = b>0;
 
       int has0 = !ia::isCompletelyFalse( a_is_null | b_is_null );
-      int has1 = !ia::isCompletelyFalse( ! a_is_null & ! b_ltz )<<1;
-      int hasm1 = !ia::isCompletelyFalse( a != 0 && b < 0 )<<2;
+      int has1 = !ia::isCompletelyFalse( !a_is_null & b_gtz )<<1;
+      int hasm1 = !ia::isCompletelyFalse( !a_is_null & b_ltz )<<2;
 
 
       static const int HAS0=1,HAS1=2,HASM1=4;
@@ -1137,7 +1143,7 @@ namespace codi {
 
       switch (has0|has1|hasm1)
       {
-      	  case 0 :
+      	  default:case 0:
       		  return (tret)std::numeric_limits<double>::quiet_NaN();
       	  case HAS0:
       		  return (tret)0;
@@ -1153,16 +1159,24 @@ namespace codi {
       	  	  return ia::join((tret)0,(tret)1);
       	  case HASM1|HAS0:
       	  	  return ia::join((tret)-1,(tret)0);
+
       }
     }
 
     /** \copydoc BinaryOpInterface::gradientB */
     template<typename A, typename B>
     static CODI_INLINE typename TypeTraits<Real>::PassiveReal gradientB(const A& a, const B& b, const Real& result) {
-      CODI_UNUSED(a);
-      CODI_UNUSED(b);
       CODI_UNUSED(result);
-      return 0.0;
+      using tret= typename TypeTraits<Real>::PassiveReal;
+      if(!ia::isCompletelyTrue(a==0))
+      {
+    	  if( !ia::isCompletelyTrue(b!=0) )
+    	  {
+    		  static const auto everything=ia::join( -(tret)std::numeric_limits<double>::infinity(),(tret)std::numeric_limits<double>::infinity());
+    		  return everything;
+    	  }
+      }
+      return 0;
     }
 
     /** \copydoc BinaryOpInterface::derv11 */
@@ -1171,10 +1185,15 @@ namespace codi {
 
       CODI_UNUSED(result);
       using tret= typename TypeTraits<Real>::PassiveReal;
-      tret multiplier= gradientA(a.getValue(),b.getValue());
+      tret multiplier= gradientA(a.getValue(),b.getValue(),Real());
       if(! ia::isCompletelyTrue(multiplier==0) )
       {
     	  a.calcGradient(data,multiplier);
+    	  if( !ia::isCompletelyTrue( b.getValue()!=0) )
+    	  {
+    		  static const auto everything=ia::join( -(tret)std::numeric_limits<double>::infinity(),(tret)std::numeric_limits<double>::infinity());
+    		  b.calcGradient(data, everything);
+    	  }
       }
     }
 
@@ -1182,10 +1201,16 @@ namespace codi {
     template<typename Data, typename A, typename B>
     static CODI_INLINE void derv11M(Data& data, const A& a, const B& b, const Real& result, const Real& multiplier) {
       CODI_UNUSED(result);
-      multiplier*= gradientA(a.getValue(),b.getValue());
+      multiplier*= gradientA(a.getValue(),b.getValue(),Real());
+      using tret= typename TypeTraits<Real>::PassiveReal;
       if(! ia::isCompletelyTrue(multiplier==0) )
       {
     	  a.calcGradient(data,multiplier);
+    	  if( !ia::isCompletelyTrue( b.getValue()!=0) )
+    	  {
+    		  static const auto everything=ia::join( -(tret)std::numeric_limits<double>::infinity(),(tret)std::numeric_limits<double>::infinity());
+    		  b.calcGradient(data, everything);
+    	  }
       }
     }
 
@@ -1194,7 +1219,7 @@ namespace codi {
     static CODI_INLINE void derv10(Data& data, const A& a, const typename TypeTraits<Real>::PassiveReal& b, const Real& result) {
       CODI_UNUSED(result);
       using tret= typename TypeTraits<Real>::PassiveReal;
-      tret multiplier= gradientA(a.getValue(),b);
+      tret multiplier= gradientA(a.getValue(),b,Real());
       if(! ia::isCompletelyTrue(multiplier==0) )
       {
     	  a.calcGradient(data,multiplier);
@@ -1205,7 +1230,7 @@ namespace codi {
     template<typename Data, typename A>
     static CODI_INLINE void derv10M(Data& data, const A& a, const typename TypeTraits<Real>::PassiveReal& b, const Real& result, const Real& multiplier) {
       CODI_UNUSED(result);
-      multiplier*= gradientA(a.getValue(),b);
+      multiplier*= gradientA(a.getValue(),b,Real());
       if(! ia::isCompletelyTrue(multiplier==0) )
       {
     	  a.calcGradient(data,multiplier);
@@ -1215,9 +1240,16 @@ namespace codi {
     /** \copydoc BinaryOpInterface::derv01 */
     template<typename Data, typename B>
     static CODI_INLINE void derv01(Data& data, const typename TypeTraits<Real>::PassiveReal& a, const B& b, const Real& result) {
-      CODI_UNUSED(a);
-      CODI_UNUSED(b);
       CODI_UNUSED(result);
+      using tret= typename TypeTraits<Real>::PassiveReal;
+      if(!ia::isCompletelyTrue(a==0))
+      {
+    	  if( !ia::isCompletelyTrue( b.getValue()!=0) )
+    	  {
+    		  static const auto everything=ia::join( -(tret)std::numeric_limits<double>::infinity(),(tret)std::numeric_limits<double>::infinity());
+    		  b.calcGradient(data, everything);
+    	  }
+      }
     }
 
     /** \copydoc BinaryOpInterface::derv01M */
@@ -1226,6 +1258,15 @@ namespace codi {
       CODI_UNUSED(a);
       CODI_UNUSED(b);
       CODI_UNUSED(result);
+      using tret= typename TypeTraits<Real>::PassiveReal;
+      if(!ia::isCompletelyTrue(a==0))
+      {
+    	  if( !ia::isCompletelyTrue( b.getValue()!=0) )
+    	  {
+    		  static const auto everything=ia::join( -(tret)std::numeric_limits<double>::infinity(),(tret)std::numeric_limits<double>::infinity());
+    		  b.calcGradient(data, everything);
+    	  }
+      }
     }
   };
   #define OPERATION_LOGIC Copysign
