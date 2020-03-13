@@ -308,7 +308,7 @@ namespace codi {
     static CODI_INLINE void derv11(Data& data, const A& a, const B& b, const Real& result) {
       CODI_UNUSED(result);
       a.calcGradient(data);
-      b.calcGradient(data, -1.0);
+      b.calcGradient(data, (Real)-1.0);
     }
 
     /** \copydoc BinaryOpInterface::derv11M */
@@ -340,7 +340,7 @@ namespace codi {
     static CODI_INLINE void derv01(Data& data, const typename TypeTraits<Real>::PassiveReal& a, const B& b, const Real& result) {
       CODI_UNUSED(a);
       CODI_UNUSED(result);
-      b.calcGradient(data, -1.0);
+      b.calcGradient(data, (Real)-1.0);
     }
 
     /** \copydoc BinaryOpInterface::derv01M */
@@ -764,7 +764,7 @@ namespace codi {
       template<typename Data, typename B>
       static CODI_INLINE void derv01M(Data& data, const typename TypeTraits<Real>::PassiveReal& a, const B& b, const Real& result, const Real& multiplier) {
         checkArguments(a);
-        if (a > 0.0) {
+        if (ia::lower(a) > 0.0) {
           b.calcGradient(data, multiplier * log(a) * result);
         }
       }
@@ -1118,14 +1118,41 @@ namespace codi {
     template<typename A, typename B>
     static CODI_INLINE typename TypeTraits<Real>::PassiveReal gradientA(const A& a, const B& b, const Real& result) {
       CODI_UNUSED(result);
-      if(a < 0.0) {
-        if (b < 0.0) {return (typename TypeTraits<Real>::PassiveReal)1.0;}
-        else {return (typename  TypeTraits<Real>::PassiveReal)-1.0;}
-      } else if(a > 0.0) {
-        if (b < 0.0) {return (typename TypeTraits<Real>::PassiveReal)-1.0;}
-        else {return (typename TypeTraits<Real>::PassiveReal)1.0;}
-      } else {
-        return (typename TypeTraits<Real>::PassiveReal)0.0;
+
+
+      using tret= typename TypeTraits<Real>::PassiveReal;
+      tret retval;
+
+      auto a_is_null = a==0;
+      auto b_is_null = b==0;
+      auto b_ltz = b<0;
+
+      int has0 = !ia::isCompletelyFalse( a_is_null | b_is_null );
+      int has1 = !ia::isCompletelyFalse( ! a_is_null & ! b_ltz )<<1;
+      int hasm1 = !ia::isCompletelyFalse( a != 0 && b < 0 )<<2;
+
+
+      static const int HAS0=1,HAS1=2,HASM1=4;
+
+
+      switch (has0|has1|hasm1)
+      {
+      	  case 0 :
+      		  return (tret)std::numeric_limits<double>::quiet_NaN();
+      	  case HAS0:
+      		  return (tret)0;
+      	  case HAS1:
+      		  return (tret)1;
+      	  case HASM1:
+      		  return (tret)-1;
+      	  //interval cases
+      	  case HAS1|HASM1:
+      	  case HAS1|HASM1|HAS0:
+      	  	  return ia::join((tret)-1,(tret)1);
+      	  case HAS1|HAS0:
+      	  	  return ia::join((tret)0,(tret)1);
+      	  case HASM1|HAS0:
+      	  	  return ia::join((tret)-1,(tret)0);
       }
     }
 
@@ -1141,47 +1168,36 @@ namespace codi {
     /** \copydoc BinaryOpInterface::derv11 */
     template<typename Data, typename A, typename B>
     static CODI_INLINE void derv11(Data& data, const A& a, const B& b, const Real& result) {
+
       CODI_UNUSED(result);
-      if(a.getValue() < 0.0) {
-        if (b.getValue() < 0.0) {return a.calcGradient(data);}
-        else {return a.calcGradient(data, -1.0);}
-      } else if(a.getValue() > 0.0) {
-        if (b.getValue() < 0.0) {return a.calcGradient(data, -1.0);}
-        else {return a.calcGradient(data);}
-      } else {
-        return a.calcGradient(data, 0.0);
+      using tret= typename TypeTraits<Real>::PassiveReal;
+      tret multiplier= gradientA(a.getValue(),b.getValue());
+      if(! ia::isCompletelyTrue(multiplier==0) )
+      {
+    	  a.calcGradient(data,multiplier);
       }
-      b.calcGradient(data, 0.0);
     }
 
     /** \copydoc BinaryOpInterface::derv11M */
     template<typename Data, typename A, typename B>
     static CODI_INLINE void derv11M(Data& data, const A& a, const B& b, const Real& result, const Real& multiplier) {
       CODI_UNUSED(result);
-      if(a.getValue() < 0.0) {
-        if (b.getValue() < 0.0) {return a.calcGradient(data, multiplier);}
-        else {return a.calcGradient(data, -1.0*multiplier);}
-      } else if(a.getValue() > 0.0) {
-        if (b.getValue() < 0.0) {return a.calcGradient(data, -1.0*multiplier);}
-        else {return a.calcGradient(data, multiplier);}
-      } else {
-        return a.calcGradient(data, 0.0);
+      multiplier*= gradientA(a.getValue(),b.getValue());
+      if(! ia::isCompletelyTrue(multiplier==0) )
+      {
+    	  a.calcGradient(data,multiplier);
       }
-      b.calcGradient(data, 0.0);
     }
 
     /** \copydoc BinaryOpInterface::derv10 */
     template<typename Data, typename A>
     static CODI_INLINE void derv10(Data& data, const A& a, const typename TypeTraits<Real>::PassiveReal& b, const Real& result) {
       CODI_UNUSED(result);
-      if(a.getValue() < 0.0) {
-        if (b < 0.0) {return a.calcGradient(data);}
-        else {return a.calcGradient(data, -1.0);}
-      } else if(a.getValue() > 0.0) {
-        if (b < 0.0) {return a.calcGradient(data, -1.0);}
-        else {return a.calcGradient(data);}
-      } else {
-        return a.calcGradient(data, 0.0);
+      using tret= typename TypeTraits<Real>::PassiveReal;
+      tret multiplier= gradientA(a.getValue(),b);
+      if(! ia::isCompletelyTrue(multiplier==0) )
+      {
+    	  a.calcGradient(data,multiplier);
       }
     }
 
@@ -1189,14 +1205,10 @@ namespace codi {
     template<typename Data, typename A>
     static CODI_INLINE void derv10M(Data& data, const A& a, const typename TypeTraits<Real>::PassiveReal& b, const Real& result, const Real& multiplier) {
       CODI_UNUSED(result);
-      if(a.getValue() < 0.0) {
-        if (b < 0.0) {return a.calcGradient(data, multiplier);}
-        else {return a.calcGradient(data, -1.0*multiplier);}
-      } else if(a.getValue() > 0.0) {
-        if (b < 0.0) {return a.calcGradient(data, -1.0*multiplier);}
-        else {return a.calcGradient(data, multiplier);}
-      } else {
-        return a.calcGradient(data, 0.0);
+      multiplier*= gradientA(a.getValue(),b);
+      if(! ia::isCompletelyTrue(multiplier==0) )
+      {
+    	  a.calcGradient(data,multiplier);
       }
     }
 
@@ -1206,7 +1218,6 @@ namespace codi {
       CODI_UNUSED(a);
       CODI_UNUSED(b);
       CODI_UNUSED(result);
-      b.calcGradient(data, 0.0);
     }
 
     /** \copydoc BinaryOpInterface::derv01M */
@@ -1215,7 +1226,6 @@ namespace codi {
       CODI_UNUSED(a);
       CODI_UNUSED(b);
       CODI_UNUSED(result);
-      b.calcGradient(data, 0.0);
     }
   };
   #define OPERATION_LOGIC Copysign
@@ -1279,92 +1289,31 @@ namespace codi {
   #define CODI_DEFINE_CONDITIONAL(OPERATOR, OP) \
     /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function @tparam B The expression for the second argument of the function*/ \
     template<typename Real, class A, class B> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const Expression<Real, B>& b)  -> decltype( a.getValue() OP b.getValue()) {\
-      return a.getValue() OP b.getValue();  \
+    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const Expression<Real, B>& b) -> decltype( a.getValue() OP b.getValue() ){ \
+      return a.getValue() OP b.getValue(); \
     } \
     \
     /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
     template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const typename TypeTraits<Real>::PassiveReal& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
+    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const typename TypeTraits<Real>::PassiveReal& b) -> decltype( a.getValue() OP b ) { \
+      return a.getValue() OP b; \
     } \
     \
     /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
     template<typename Real, class B> \
-    CODI_INLINE auto OPERATOR(const typename TypeTraits<Real>::PassiveReal& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
+    CODI_INLINE auto OPERATOR(const typename TypeTraits<Real>::PassiveReal& a, const Expression<Real, B>& b) -> decltype (a OP b.getValue()) { \
+      return a OP b.getValue(); \
     } \
-    \
     /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
     template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const int& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
+    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const int& b) -> decltype( a.getValue() OP b ) { \
+      return a.getValue() OP b; \
     } \
     \
     /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
     template<typename Real, class B>            \
-    CODI_INLINE auto OPERATOR(const int& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
-    template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const unsigned int& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
-    template<typename Real, class B>            \
-    CODI_INLINE auto OPERATOR(const unsigned int& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
-    template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const long& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
-    template<typename Real, class B>            \
-    CODI_INLINE auto OPERATOR(const long& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
-    template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const unsigned long& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
-    template<typename Real, class B>            \
-    CODI_INLINE auto OPERATOR(const unsigned long& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
-    template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const long long& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
-    template<typename Real, class B>            \
-    CODI_INLINE auto OPERATOR(const long long& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam A The expression for the first argument of the function */ \
-    template<typename Real, class A> \
-    CODI_INLINE auto OPERATOR(const Expression<Real, A>& a, const unsigned long long& b)  -> decltype( a.getValue() OP b) {\
-      return a.getValue() OP b;  \
-    } \
-    \
-    /** @brief Overload for OP with the CoDiPack expressions. @param[in] a The first argument of the operation. @param[in] b The second argument of the operation. @return The operation returns the same value the same version with double arguments. @tparam Real The real type used in the active types. @tparam B The expression for the second argument of the function*/ \
-    template<typename Real, class B>            \
-    CODI_INLINE auto OPERATOR(const unsigned long long& a, const Expression<Real, B>& b)  -> decltype( a OP b.getValue()) {\
-      return a OP b.getValue();  \
+    CODI_INLINE auto OPERATOR(const int& a, const Expression<Real, B>& b) -> decltype( a OP b.getValue() ) { \
+      return a OP b.getValue(); \
     }
 
   CODI_DEFINE_CONDITIONAL(operator==, ==)
@@ -1440,7 +1389,7 @@ namespace codi {
     static CODI_INLINE typename TypeTraits<Real>::PassiveReal gradient(const Real& a, const Real& result) {
       CODI_UNUSED(a);
       CODI_UNUSED(result);
-      return -1.0;
+      return (typename  TypeTraits<Real>::PassiveReal)-1.0;
     }
   };
   #define OPERATION_LOGIC UnaryMinus
