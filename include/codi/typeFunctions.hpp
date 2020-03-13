@@ -34,6 +34,7 @@
 
 #include <type_traits>
 #include "expressions.hpp"
+#include "IAOverloaded.hpp"
 
 /**
  * @brief Global namespace for CoDiPack - Code Differentiation Package
@@ -57,7 +58,7 @@ namespace codi {
       >
   {
       static CODI_INLINE bool isTotalZero(const T &t) {
-        return t == T();
+        return ia::isCompletelyTrue(t == T());
       }
   };
 
